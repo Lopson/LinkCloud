@@ -206,5 +206,34 @@ public class BlobObject
         }
     }
 
-    // container.createIfNotExists();
+    @SuppressWarnings("unused")
+    public static void
+    deleteBlob(String provider, String containerName, String blobName, String username, String password)
+    throws BadRequestException, InternalServerErrorException, NotFoundException
+    {
+    // Setup access to container
+        CloudStorageAccount azureAccount= initStorageConnection(username, password);
+        CloudBlobClient     blobClient= azureAccount.createCloudBlobClient();
+        CloudBlobContainer  container= initBlobContainer(blobClient, containerName);
+
+        try
+        {
+            CloudBlockBlob blockBlob = container.getBlockBlobReference(blobName);
+            blockBlob.delete();
+        }
+        catch (StorageException blobError)
+        {
+        // 400 for invalid name; 404 for missing; anything else is error
+            int httpStatusCode= blobError.getHttpStatusCode();
+
+            if     (httpStatusCode== 400) {throw new BadRequestException("Invalid blob name " + blobName);}
+            else if(httpStatusCode== 404) {throw new NotFoundException("Blob " + blobName + " not found");}
+            else                          {throw new InternalServerErrorException("Unknown error encountered");}
+        }
+        catch (URISyntaxException e)
+        {
+        // Should never happen
+            throw new InternalServerErrorException("Error encountered when parsing blob " + blobName);
+        }
+    }
 }

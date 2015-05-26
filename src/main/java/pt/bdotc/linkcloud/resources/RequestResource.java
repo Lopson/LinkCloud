@@ -6,6 +6,7 @@ import javax.ws.rs.*;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
 
 import org.glassfish.jersey.media.multipart.FormDataParam;
 import org.glassfish.jersey.media.multipart.FormDataContentDisposition;
@@ -71,12 +72,11 @@ public class RequestResource
            InternalServerErrorException
     {
     // Get username and password from HTTP AUTHORIZATION header
-        String[] credentials= getCredentialsValidateCSP(headers, provider); // Throws ForbiddenException, BadRequestException
+        String[] credentials= getCredentialsValidateCSP(headers, provider);
         String username= credentials[0];
         String password= credentials[1];
 
     // Perform download of blob and return it to client
-        /* Throws NotFoundException and InternalServerErrorException. */
         return BlobObject.downloadBlob(provider, container, blob, username, password);
     }
 
@@ -121,7 +121,23 @@ public class RequestResource
         return BlobObject.listBlobs(provider, container, username, password);
     }
 
+    @DELETE
+    @Path("{provider}/{container}/{blob}")
+    public Response
+    deleteBlob(@Context                HttpHeaders headers,
+               @PathParam("provider")  String provider,
+               @PathParam("container") String container,
+               @PathParam("blob")      String blob)
+    throws ForbiddenException, BadRequestException, NotSupportedException, NotFoundException,
+           InternalServerErrorException
+    {
+    // Get username and password from HTTP AUTHORIZATION header
+        String[] credentials= getCredentialsValidateCSP(headers, provider);
+        String username= credentials[0];
+        String password= credentials[1];
 
-    // Function to @GET a blob listing (return XML file)
-    // Function to @DELETE blob
+    // Perform deletion of blob
+        BlobObject.deleteBlob(provider, container, blob, username, password);
+        return Response.ok().build();
+    }
 }
