@@ -38,7 +38,7 @@ import java.security.InvalidKeyException;
  *  http://blogs.msdn.com/b/jmstall/archive/2014/06/12/azure-storage-naming-rules.aspx
  */
 @Stateless
-public class BlobObject
+public class AzureStorageObject implements StorageObject
 {
     private static final String XMLROOT= "blobs";
     private static final int BUF_SIZE= 8192;
@@ -93,7 +93,7 @@ public class BlobObject
     }
 
     @SuppressWarnings("unused")
-    public static InputStream
+    public InputStream
     downloadBlob(String provider, String containerName, String blobName, String username, String password)
     throws BadRequestException, InternalServerErrorException, NotFoundException
     {
@@ -125,7 +125,7 @@ public class BlobObject
     }
 
     @SuppressWarnings("unused")
-    public static void
+    public void
     uploadBlob(String provider, String containerName, String blobName, String username, String password,
                InputStream blobContents, long size)
     throws BadRequestException, InternalServerErrorException, NotFoundException
@@ -169,7 +169,7 @@ public class BlobObject
     }
 
     @SuppressWarnings("unused")
-    public static InputStream
+    public InputStream
     listBlobs(String provider, String containerName, String username, String password)
     throws BadRequestException, InternalServerErrorException, NotFoundException
     {
@@ -233,7 +233,7 @@ public class BlobObject
     }
 
     @SuppressWarnings("unused")
-    public static void
+    public void
     deleteBlob(String provider, String containerName, String blobName, String username, String password)
     throws BadRequestException, InternalServerErrorException, NotFoundException
     {

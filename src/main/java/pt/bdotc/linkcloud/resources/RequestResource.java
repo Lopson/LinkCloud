@@ -1,6 +1,7 @@
 package pt.bdotc.linkcloud.resources;
 
-import pt.bdotc.linkcloud.objects.BlobObject;
+import pt.bdotc.linkcloud.objects.AzureStorageObject;
+import pt.bdotc.linkcloud.objects.StorageObject;
 
 import javax.ws.rs.*;
 import javax.ws.rs.core.Context;
@@ -29,8 +30,11 @@ import java.io.InputStream;
 @Path("api")
 public class RequestResource
 {
-    private static final String[] blobStoreProviders= {"azureblob"};
-    private static final Set<String> providersSet= new HashSet<>(Arrays.asList(blobStoreProviders));
+    private static final HashMap<String, StorageObject> providersSet=  new HashMap<>();
+    static
+    {
+        providersSet.put("azureblob", new AzureStorageObject());
+    }
 
     private String[]
     getCredentialsValidateCSP(HttpHeaders headers, String provider)
@@ -52,7 +56,7 @@ public class RequestResource
         if(result.length!= 2 || result[0].equals("") || result[1].equals("")) {throw new BadRequestException();}
 
     // Make sure client is using valid CSP
-        if(!providersSet.contains(provider)) {throw new NotSupportedException();}
+        if(!providersSet.containsKey(provider)) {throw new NotSupportedException();}
 
         return result;
     }
@@ -74,13 +78,13 @@ public class RequestResource
         String password= credentials[1];
 
     // Perform download of blob and return it to client
-        return BlobObject.downloadBlob(provider, container, blob, username, password);
+        return providersSet.get(provider).downloadBlob(provider, container, blob, username, password);
     }
 
     @POST
     @Path("{provider}/{container}/{blob}")
     @Consumes(MediaType.APPLICATION_OCTET_STREAM)
-    public void
+    public Response
     putBlob(@Context                    HttpHeaders headers,
             @PathParam("provider")      String provider,
             @PathParam("container")     String container,
@@ -95,7 +99,8 @@ public class RequestResource
         String password= credentials[1];
 
     // Get blob size and try to upload blob
-        BlobObject.uploadBlob(provider, container, blob, username, password, content, size);
+        providersSet.get(provider).uploadBlob(provider, container, blob, username, password, content, size);
+        return Response.ok().build();
     }
 
     @GET
@@ -114,7 +119,7 @@ public class RequestResource
         String password= credentials[1];
 
     // Get XML list and return it
-        return BlobObject.listBlobs(provider, container, username, password);
+        return providersSet.get(provider).listBlobs(provider, container, username, password);
     }
 
     @DELETE
@@ -133,7 +138,7 @@ public class RequestResource
         String password= credentials[1];
 
     // Perform deletion of blob
-        BlobObject.deleteBlob(provider, container, blob, username, password);
+        providersSet.get(provider).deleteBlob(provider, container, blob, username, password);
         return Response.ok().build();
     }
 }
