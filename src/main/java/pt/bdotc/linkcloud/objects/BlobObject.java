@@ -3,7 +3,6 @@ package pt.bdotc.linkcloud.objects;
 import com.microsoft.azure.storage.CloudStorageAccount;
 import com.microsoft.azure.storage.StorageException;
 import com.microsoft.azure.storage.blob.*;
-import com.sun.xml.internal.messaging.saaj.util.ByteOutputStream;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
@@ -13,14 +12,10 @@ import javax.ws.rs.InternalServerErrorException;
 import javax.ws.rs.NotFoundException;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.*;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
-import javax.xml.transform.stream.StreamSource;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.InputStream;
+import java.io.*;
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
 
@@ -46,6 +41,7 @@ import java.security.InvalidKeyException;
 public class BlobObject
 {
     private static final String XMLROOT= "blobs";
+    private static final int BUF_SIZE= 8192;
 
     private static CloudStorageAccount
     initStorageConnection(String username, String password)
@@ -112,7 +108,7 @@ public class BlobObject
             CloudBlockBlob blockBlob= container.getBlockBlobReference(blobName);
             return blockBlob.openInputStream();
         }
-        catch (StorageException blobError)
+        catch(StorageException blobError)
         {
         // 400 for invalid name; 404 for missing; anything else is error
             int httpStatusCode= blobError.getHttpStatusCode();
@@ -121,7 +117,7 @@ public class BlobObject
             else if(httpStatusCode== 404) {throw new NotFoundException("Blob " + blobName + " not found");}
             else                          {throw new InternalServerErrorException("Unknown error encountered");}
         }
-        catch (URISyntaxException e)
+        catch(URISyntaxException e)
         {
         // Should never happen
             throw new InternalServerErrorException("Error encountered when parsing blob " + blobName);
@@ -131,7 +127,7 @@ public class BlobObject
     @SuppressWarnings("unused")
     public static void
     uploadBlob(String provider, String containerName, String blobName, String username, String password,
-               InputStream blobContents, long blobSize)
+               InputStream blobContents, long size)
     throws BadRequestException, InternalServerErrorException, NotFoundException
     {
     // Setup access to container
@@ -139,6 +135,36 @@ public class BlobObject
         CloudBlobClient     blobClient= azureAccount.createCloudBlobClient();
         CloudBlobContainer  container= initBlobContainer(blobClient, containerName);
 
+        try
+        {
+            CloudBlockBlob blockBlob = container.getBlockBlobReference(blobName);
+            //OutputStream blobOutStream= blockBlob.openOutputStream();
+            blockBlob.upload(blobContents, size);
+
+        // Reads InputStream into OutputStream
+            /* Copied from Guava version 18.0 (ByteStreams.copy() method). */
+            /*byte[] buffer= new byte[BUF_SIZE];
+            while(true)
+            {
+                int bytesRead= blobContents.read(buffer);
+                if(bytesRead== -1) {break;}
+
+                blobOutStream.write(buffer, 0, bytesRead);
+            }*/
+        }
+        catch(StorageException blobError)
+        {
+        // 400 for invalid name; 404 for missing; anything else is error
+            int httpStatusCode= blobError.getHttpStatusCode();
+
+            if     (httpStatusCode== 400) {throw new BadRequestException("Invalid blob name " + blobName);}
+            else                          {throw new InternalServerErrorException("Unknown error encountered");}
+        }
+        catch(IOException | URISyntaxException e)
+        {
+        // Should never happen
+            throw new InternalServerErrorException("Error encountered when parsing blob " + blobName);
+        }
 
     }
 
@@ -221,7 +247,7 @@ public class BlobObject
             CloudBlockBlob blockBlob = container.getBlockBlobReference(blobName);
             blockBlob.delete();
         }
-        catch (StorageException blobError)
+        catch(StorageException blobError)
         {
         // 400 for invalid name; 404 for missing; anything else is error
             int httpStatusCode= blobError.getHttpStatusCode();
@@ -230,7 +256,7 @@ public class BlobObject
             else if(httpStatusCode== 404) {throw new NotFoundException("Blob " + blobName + " not found");}
             else                          {throw new InternalServerErrorException("Unknown error encountered");}
         }
-        catch (URISyntaxException e)
+        catch(URISyntaxException e)
         {
         // Should never happen
             throw new InternalServerErrorException("Error encountered when parsing blob " + blobName);

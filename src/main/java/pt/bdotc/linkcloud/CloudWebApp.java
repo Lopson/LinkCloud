@@ -1,6 +1,5 @@
 package pt.bdotc.linkcloud;
 
-import org.glassfish.jersey.media.multipart.MultiPartFeature;
 import pt.bdotc.linkcloud.resources.RequestResource;
 
 import javax.ws.rs.ApplicationPath;
@@ -21,7 +20,7 @@ public class CloudWebApp extends Application
     {
         Set<Class<?>> classes = new java.util.HashSet<>();
         classes.add(RequestResource.class);
-        classes.add(MultiPartFeature.class); // Jersey 2 Multipart Upload Feature
+        //classes.add(MultiPartFeature.class); // Jersey 2 Multipart Upload Feature
 
         return classes;
     }

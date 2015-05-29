@@ -8,9 +8,6 @@ import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
-import org.glassfish.jersey.media.multipart.FormDataParam;
-import org.glassfish.jersey.media.multipart.FormDataContentDisposition;
-
 import java.util.*;
 import java.io.InputStream;
 
@@ -81,15 +78,15 @@ public class RequestResource
     }
 
     @POST
-    @Path("{provider}/{container}")
-    @Consumes(MediaType.MULTIPART_FORM_DATA)
+    @Path("{provider}/{container}/{blob}")
+    @Consumes(MediaType.APPLICATION_OCTET_STREAM)
     public void
     putBlob(@Context                    HttpHeaders headers,
             @PathParam("provider")      String provider,
             @PathParam("container")     String container,
-            @FormDataParam("blob_id")   String blob,
-            @FormDataParam("blob_data") InputStream blobContents,
-            @FormDataParam("blob_data") FormDataContentDisposition blobDetails)
+            @PathParam("blob")          String blob,
+            @QueryParam("size")         long size,
+            InputStream content)
     throws ForbiddenException, BadRequestException, NotSupportedException
     {
     // Get username and password from HTTP AUTHORIZATION header
@@ -98,8 +95,7 @@ public class RequestResource
         String password= credentials[1];
 
     // Get blob size and try to upload blob
-        long blobSize= blobDetails.getSize();
-        BlobObject.uploadBlob(provider, container, blob, username, password, blobContents, blobSize);
+        BlobObject.uploadBlob(provider, container, blob, username, password, content, size);
     }
 
     @GET
