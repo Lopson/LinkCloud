@@ -20,29 +20,24 @@ import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
 
 /**
- * Created by Lopson on 23/05/2015.
- *
- * Download blob:
- * https://community.rackspace.com/developers/f/7/t/3563
- *
- * Blob upload and container creation:
- * https://jclouds.apache.org/start/blobstore/
- *
- * Random Code:
- *  BlobMetadata metadata = cloudStorage.blobMetadata(container, blobName);
- *  Long blobSize= metadata.getContentMetadata().getContentLength();
- *
- * Azure SDK:
- *  http://dl.windowsazure.com/storage/javadoc/
- *  http://azure.microsoft.com/en-us/documentation/articles/storage-java-how-to-use-blob-storage/
- *  http://blogs.msdn.com/b/jmstall/archive/2014/06/12/azure-storage-naming-rules.aspx
+ * An implementation of the {@link StorageObject} interface for the Microsoft Azure Storage Service. All content that's
+ * either downloaded or uploaded is streamed through the application server.
  */
 @Stateless
 public class AzureStorageObject implements StorageObject
 {
-    private static final String XMLROOT= "blobs";
-    private static final int BUF_SIZE= 8192;
-
+    /**
+     * Gives the caller a {@link com.microsoft.azure.storage.CloudStorageAccount CloudStorageAccount} object that can
+     * be used to access a storage account. Also validates the username of the storage account, seeing as Azure's
+     * Storage SDK doesn't do that out-of-the-box.
+     *
+     * @param username The name of the storage account.
+     * @param password The access key of the storage account.
+     * @return A {@link com.microsoft.azure.storage.CloudStorageAccount CloudStorageAccount} object that describes a
+     *         storage account.
+     * @throws BadRequestException Thrown when an invalid username or key is given.
+     * @throws InternalServerErrorException Thrown when the creation of the connection string fails.
+     */
     private static CloudStorageAccount
     initStorageConnection(String username, String password)
     throws BadRequestException, InternalServerErrorException
@@ -70,6 +65,19 @@ public class AzureStorageObject implements StorageObject
         }
     }
 
+    /**
+     * Returns a {@link com.microsoft.azure.storage.blob.CloudBlobContainer CloudBlobContainer} describing a blob
+     * container, used to access blobs within it.
+     *
+     * @param blobClient A {@link com.microsoft.azure.storage.blob.CloudBlobClient CloudBlobContainer} object that
+     *                   represents a client to access a specific container.
+     * @param containerName The name of the container to access.
+     * @return A {@link com.microsoft.azure.storage.blob.CloudBlobContainer CloudBlobContainer} that represents the
+     *         container that the invoker wants to access.
+     * @throws BadRequestException Thrown when the name of the container is invalid.
+     * @throws InternalServerErrorException Thrown when some other HTTP error that's not 400 or 404 is encountered.
+     * @throws NotFoundException Thrown when the container given as argument doesn't exist.
+     */
     private static CloudBlobContainer
     initBlobContainer(CloudBlobClient blobClient, String containerName)
     throws BadRequestException, InternalServerErrorException, NotFoundException
@@ -92,9 +100,25 @@ public class AzureStorageObject implements StorageObject
         }
     }
 
-    @SuppressWarnings("unused")
+    /**
+     * Downloads a blob from a specific container belonging to a specific Azure Storage account. Streams the blob's
+     * content from this application into the client.
+     *
+     * @param containerName The name of the container that has the blob to download.
+     * @param blobName The name of the blob to download.
+     * @param username The username of the Azure Storage account to use.
+     * @param password The password of the Azure Storage account.
+     * @return An {@link java.io.InputStream InputStream} object that the server will use to send the blob's content
+     *         into the client. This object is automatically closed by the server itself.
+     * @throws BadRequestException Thrown when the given blob name is invalid. See also the {@link #initBlobContainer}
+     *         and the {@link #initStorageConnection} methods of this class.
+     * @throws InternalServerErrorException Thrown when a non 400 or 404 HTTP error is encountered. See also the
+     *         {@link #initBlobContainer} and the {@link #initStorageConnection} methods of this class.
+     * @throws NotFoundException Thrown when the given blob doesn't exist. See also the {@link #initBlobContainer} and
+     *         the {@link #initStorageConnection} methods of this class.
+     */
     public InputStream
-    downloadBlob(String provider, String containerName, String blobName, String username, String password)
+    downloadBlob(String containerName, String blobName, String username, String password)
     throws BadRequestException, InternalServerErrorException, NotFoundException
     {
     // Setup access to container
@@ -124,9 +148,26 @@ public class AzureStorageObject implements StorageObject
         }
     }
 
-    @SuppressWarnings("unused")
+    /**
+     * Uploads a blob into a specific container belonging to a given Azure Storage account. The contents that are to be
+     * put into a blob with a given name are streamed from the client into the Storage account. Note that if the blob
+     * already exists, it'll be overwritten.
+     *
+     * @param containerName The name of the container in which the blob will be created.
+     * @param blobName The name of the blob to create or overwrite.
+     * @param username The username of the Azure Storage account to use.
+     * @param password The password of the Azure Storage account.
+     * @throws BadRequestException Thrown when the given blob name is invalid. See also the {@link #initBlobContainer}
+     *         and the {@link #initStorageConnection} methods of this class.
+     * @throws InternalServerErrorException Thrown when a non 400 HTTP error is encountered, when an IO error occurs
+     *         while sending the content into the Storage account, or when an error is encountered when trying to get
+     *         the blob's URI. See also the {@link #initBlobContainer} and the {@link #initStorageConnection} methods
+     *         of this class.
+     * @throws NotFoundException See the {@link #initBlobContainer} and the {@link #initStorageConnection} methods of
+     *         this class.
+     */
     public void
-    uploadBlob(String provider, String containerName, String blobName, String username, String password,
+    uploadBlob(String containerName, String blobName, String username, String password,
                InputStream blobContents, long size)
     throws BadRequestException, InternalServerErrorException, NotFoundException
     {
@@ -137,28 +178,19 @@ public class AzureStorageObject implements StorageObject
 
         try
         {
-            CloudBlockBlob blockBlob = container.getBlockBlobReference(blobName);
-            //OutputStream blobOutStream= blockBlob.openOutputStream();
+            /* AFAIK, the upload() method is still streaming, not caching. This also has the
+             * advantage of guaranteeing that there'll be no SegFaults while reading from the
+             * InputStream given, since it'll read exactly size bytes from it. */
+            CloudBlockBlob blockBlob= container.getBlockBlobReference(blobName);
             blockBlob.upload(blobContents, size);
-
-        // Reads InputStream into OutputStream
-            /* Copied from Guava version 18.0 (ByteStreams.copy() method). */
-            /*byte[] buffer= new byte[BUF_SIZE];
-            while(true)
-            {
-                int bytesRead= blobContents.read(buffer);
-                if(bytesRead== -1) {break;}
-
-                blobOutStream.write(buffer, 0, bytesRead);
-            }*/
         }
         catch(StorageException blobError)
         {
         // 400 for invalid name; 404 for missing; anything else is error
             int httpStatusCode= blobError.getHttpStatusCode();
 
-            if     (httpStatusCode== 400) {throw new BadRequestException("Invalid blob name " + blobName);}
-            else                          {throw new InternalServerErrorException("Unknown error encountered");}
+            if(httpStatusCode== 400) {throw new BadRequestException("Invalid blob name " + blobName);}
+            else                     {throw new InternalServerErrorException("Unknown error encountered");}
         }
         catch(IOException | URISyntaxException e)
         {
@@ -168,9 +200,25 @@ public class AzureStorageObject implements StorageObject
 
     }
 
-    @SuppressWarnings("unused")
+    /**
+     * Lists the blobs that exist in a given container belonging to a given Storage account. The list is built as an
+     * XML file to be sent into the client. The XML file that this method builds resides in memory until it's fully
+     * sent to the client.
+     *
+     * @param containerName The name of the container that's to be accessed.
+     * @param username The username of the Storage account to use.
+     * @param password The password of the Storage account.
+     * @return An {@link java.io.InputStream} object that the server will use to send the XML file.
+     * @throws BadRequestException See the {@link #initBlobContainer} and the {@link #initStorageConnection} methods of
+     *         this class.
+     * @throws InternalServerErrorException Thrown when any kind of exception that rises from the creation of the XML
+     *         file is caught. See also the {@link #initBlobContainer} and the {@link #initStorageConnection} methods
+     *         of this class.
+     * @throws NotFoundException See the {@link #initBlobContainer} and the {@link #initStorageConnection} methods of
+     *         this class.
+     */
     public InputStream
-    listBlobs(String provider, String containerName, String username, String password)
+    listBlobs(String containerName, String username, String password)
     throws BadRequestException, InternalServerErrorException, NotFoundException
     {
     // Setup access to container
@@ -188,8 +236,8 @@ public class AzureStorageObject implements StorageObject
             long blobCounter= 0;
 
         // Create root element
-            Element rootElement= doc.createElement(XMLROOT);
-            rootElement.setAttribute("count", Long.toString(blobCounter));
+            Element rootElement= doc.createElement(XML_ROOT);
+            rootElement.setAttribute(XML_ROOT_COUNT, Long.toString(blobCounter));
             doc.appendChild(rootElement);
 
         // Iterate through all blobs
@@ -202,14 +250,14 @@ public class AzureStorageObject implements StorageObject
                     String blobName= blob.getName();
                     long blobSize= blob.getProperties().getLength();
 
-                    Element blobEntry= doc.createElement("blob");
-                    blobEntry.setAttribute("name", blobName);
-                    blobEntry.setAttribute("size", Long.toString(blobSize));
+                    Element blobEntry= doc.createElement(XML_BLOB);
+                    blobEntry.setAttribute(XML_BLOB_NAME, blobName);
+                    blobEntry.setAttribute(XML_BLOB_SIZE, Long.toString(blobSize));
 
                 // Create blob entry and update blob count in root element
                     blobCounter++;
                     rootElement.appendChild(blobEntry);
-                    rootElement.setAttribute("count", Long.toString(blobCounter));
+                    rootElement.setAttribute(XML_ROOT_COUNT, Long.toString(blobCounter));
                 }
             }
 
@@ -232,9 +280,22 @@ public class AzureStorageObject implements StorageObject
         }
     }
 
-    @SuppressWarnings("unused")
+    /**
+     * Deletes a given block from a given container with the given Azure Storage account credentials.
+     *
+     * @param containerName The name of the container in which the blob to be deleted exists.
+     * @param blobName The name of the blob to delete.
+     * @param username The Storage account's username.
+     * @param password The Storage account's password.
+     * @throws BadRequestException Thrown when the given blob name is invalid. See also the {@link #initBlobContainer}
+     *         and the {@link #initStorageConnection} methods of this class.
+     * @throws InternalServerErrorException Thrown when a non 400 or 404 HTTP error is encountered. See also the
+     *         {@link #initBlobContainer} and the {@link #initStorageConnection} methods of this class.
+     * @throws NotFoundException Thrown when the blob to be deleted doesn't exist. See also the
+     *         {@link #initBlobContainer} and the {@link #initStorageConnection} methods of this class.
+     */
     public void
-    deleteBlob(String provider, String containerName, String blobName, String username, String password)
+    deleteBlob(String containerName, String blobName, String username, String password)
     throws BadRequestException, InternalServerErrorException, NotFoundException
     {
     // Setup access to container
