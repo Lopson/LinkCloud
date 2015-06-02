@@ -12,7 +12,9 @@ Here's what it's be able to do for now:
 * Download a blob (`GET` at `/api/{provider}/{container}/{blob}`);
 * Upload a blob (`POST` at  `/api/{provider}/{container}/{blob}?size={file_size_in_bytes}`);
 * Delete a blob (`DELETE` at `/api/{provider}/{container}/{blob}`);
-* Lists all blobs in a container (`GET` at `/api/{provider}/{container}`, returns an XML file).
+* Lists all blobs in a container (`GET` at `/api/{provider}/{container}`, returns an XML file);
+* Create a container (`POST` at `/api/{provider}/{container}`);
+* Test if a container exists (`HEAD` at `/api/{provider}/{container}`);
 
 All login credentials must be sent to the service through Basic Authentication HTTP headers (`accountName:accountKey`).
 The XML file returned by the listing method should have the following structure:

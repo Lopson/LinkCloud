@@ -1,5 +1,6 @@
 package pt.bdotc.linkcloud.objects;
 
+import javax.ws.rs.NotFoundException;
 import java.io.InputStream;
 
 /**
@@ -26,6 +27,10 @@ public interface StorageObject
     /** String with the name of the attribute of the {@link #XML_BLOB} element that's to contain a blob's size
      *  in bytes. This element should be a {@code long} value. */
     String XML_BLOB_SIZE= "size";
+
+/*---------------------
+* --- BLOB REQUESTS ---
+* ---------------------*/
 
     /**
      * Interface for the download of a blob from some CSP. Classes that implement this interface should make an active
@@ -58,6 +63,21 @@ public interface StorageObject
                InputStream blobContents, long size);
 
     /**
+     * Interface for the deletion of a given blob.
+     *
+     * @param containerName The name of the container to access.
+     * @param blobName The name of the blob to delete.
+     * @param username The username of the account on a CSP.
+     * @param password The password of the account to use on a CSP.
+     */
+    void
+    deleteBlob(String containerName, String blobName, String username, String password);
+
+/*--------------------------
+* --- CONTAINER REQUESTS ---
+* --------------------------*/
+
+    /**
      * Interface for the listing of blobs that belong to a certain container in a CSP. This method has to return an XML
      * file with the following formatting:
      *
@@ -84,7 +104,7 @@ public interface StorageObject
      * </pre>
      *
      * Creating XML files in Java means that the file will reside in memory while it's being built. This means that,
-     * for containers with a large number of blobs, the program might resort to using a significant ammount of memory.
+     * for containers with a large number of blobs, the program might resort to using a significant amount of memory.
      *
      * @param containerName The name of the container to access.
      * @param username The name of the account in a CSP.
@@ -96,13 +116,24 @@ public interface StorageObject
     listBlobs(String containerName, String username, String password);
 
     /**
-     * Interface for the deletion of a given blob.
+     * Interface for the creation of a container if and only if it doesn't exist. Should give no feedback in regards to
+     * whether or not the container was created.
      *
-     * @param containerName The name of the container to access.
-     * @param blobName The name of the blob to delete.
-     * @param username The username of the account on a CSP.
-     * @param password The password of the account to use on a CSP.
+     * @param containerName The name of the container to create.
+     * @param username The username of the account of the CSP used.
+     * @param password The password of the account of the CSP used.
      */
     void
-    deleteBlob(String containerName, String blobName, String username, String password);
+    createContainerIfNotExists(String containerName, String username, String password);
+
+    /**
+     * Interface for testing whether or not a specific container exists.
+     *
+     * @param containerName The name of the container to test.
+     * @param username The username of the account to use in a CSP.
+     * @param password The password of the CSP account.
+     * @return {@code true} if container exists; {@code false} if it doesn't.
+     */
+    boolean
+    containerExists(String containerName, String username, String password);
 }

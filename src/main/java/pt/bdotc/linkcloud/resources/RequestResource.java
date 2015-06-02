@@ -74,6 +74,10 @@ public class RequestResource
         return result;
     }
 
+/*---------------------
+* --- BLOB REQUESTS ---
+* ---------------------*/
+
     /**
      * A {@code GET} HTTP request for the download of a blob. Its path is {@code "{provider}/{container}/{blob}"} and
      * it returns an {@code application/octet_stream}.
@@ -83,9 +87,9 @@ public class RequestResource
      * @param container The container in which the blob to download resides.
      * @param blob The name of the blob to download.
      * @return An {@link InputStream} with the contents of the blob that's being downloaded.
-     * @throws ForbiddenException See {@code getCredentialsValidateCSP} and the StorageObject classes implemented.
-     * @throws BadRequestException See {@code getCredentialsValidateCSP} and the StorageObject classes implemented.
-     * @throws NotSupportedException See {@code getCredentialsValidateCSP} and the StorageObject classes implemented.
+     * @throws ForbiddenException See {@link #getCredentialsValidateCSP} and the StorageObject classes implemented.
+     * @throws BadRequestException See {@link #getCredentialsValidateCSP} and the StorageObject classes implemented.
+     * @throws NotSupportedException See {@link #getCredentialsValidateCSP} and the StorageObject classes implemented.
      * @throws NotFoundException See the StorageObject classes implemented.
      * @throws InternalServerErrorException See the StorageObject classes implemented.
      */
@@ -126,19 +130,19 @@ public class RequestResource
      * @param size The size of the blob. A parameter in the URL of the client's request.
      * @param content The contents to be uploaded.
      * @return A 200 HTTP code in case of success.
-     * @throws ForbiddenException See {@code getCredentialsValidateCSP} and the StorageObject classes implemented.
-     * @throws BadRequestException See {@code getCredentialsValidateCSP} and the StorageObject classes implemented.
-     * @throws NotSupportedException See {@code getCredentialsValidateCSP} and the StorageObject classes implemented.
+     * @throws ForbiddenException See {@link #getCredentialsValidateCSP} and the StorageObject classes implemented.
+     * @throws BadRequestException See {@link #getCredentialsValidateCSP} and the StorageObject classes implemented.
+     * @throws NotSupportedException See {@link #getCredentialsValidateCSP} and the StorageObject classes implemented.
      */
     @POST
     @Path("{provider}/{container}/{blob}")
     @Consumes(MediaType.APPLICATION_OCTET_STREAM)
     public Response
-    putBlob(@Context                    HttpHeaders headers,
-            @PathParam("provider")      String provider,
-            @PathParam("container")     String container,
-            @PathParam("blob")          String blob,
-            @QueryParam("size")         long size,
+    putBlob(@Context                HttpHeaders headers,
+            @PathParam("provider")  String provider,
+            @PathParam("container") String container,
+            @PathParam("blob")      String blob,
+            @QueryParam("size")     long size,
             InputStream content)
     throws ForbiddenException, BadRequestException, NotSupportedException
     {
@@ -153,15 +157,54 @@ public class RequestResource
     }
 
     /**
+     * A {@code DELETE} HTTP request for the deletion of a blob. If the blob doesn't exist, this method returns a 404
+     * HTTP code.
+     *
+     * @param headers The HTTP headers of the client's request.
+     * @param provider The CSP that's to be accessed.
+     * @param container The container that's to be altered.
+     * @param blob The blob that's to be deleted.
+     * @return A 200 HTTP code in case of success.
+     * @throws ForbiddenException See {@link #getCredentialsValidateCSP} and the StorageObject classes implemented.
+     * @throws BadRequestException See {@link #getCredentialsValidateCSP} and the StorageObject classes implemented.
+     * @throws NotSupportedException See {@link #getCredentialsValidateCSP} and the StorageObject classes implemented.
+     * @throws NotFoundException See the StorageObject classes implemented.
+     * @throws InternalServerErrorException See the StorageObject classes implemented.
+     */
+    @DELETE
+    @Path("{provider}/{container}/{blob}")
+    public Response
+    deleteBlob(@Context                HttpHeaders headers,
+               @PathParam("provider")  String provider,
+               @PathParam("container") String container,
+               @PathParam("blob")      String blob)
+            throws ForbiddenException, BadRequestException, NotSupportedException, NotFoundException,
+            InternalServerErrorException
+    {
+        // Get username and password from HTTP AUTHORIZATION header
+        String[] credentials= getCredentialsValidateCSP(headers, provider);
+        String username= credentials[0];
+        String password= credentials[1];
+
+        // Perform deletion of blob
+        providersSet.get(provider).deleteBlob(container, blob, username, password);
+        return Response.ok().build();
+    }
+
+/*--------------------------
+* --- CONTAINER REQUESTS ---
+* --------------------------*/
+
+    /**
      * A {@code GET} HTTP request that returns an XML file listing all of the blobs inside a container.
      *
      * @param headers The HTTP headers of the client's request.
      * @param provider The CSP that's to be accessed.
      * @param container The container that's to be listed.
      * @return An {@link InputStream} with the XML file.
-     * @throws ForbiddenException See {@code getCredentialsValidateCSP} and the StorageObject classes implemented.
-     * @throws BadRequestException See {@code getCredentialsValidateCSP} and the StorageObject classes implemented.
-     * @throws NotSupportedException See {@code getCredentialsValidateCSP} and the StorageObject classes implemented.
+     * @throws ForbiddenException See {@link #getCredentialsValidateCSP} and the StorageObject classes implemented.
+     * @throws BadRequestException See {@link #getCredentialsValidateCSP} and the StorageObject classes implemented.
+     * @throws NotSupportedException See {@link #getCredentialsValidateCSP} and the StorageObject classes implemented.
      * @throws InternalServerErrorException See the StorageObject classes implemented.
      * @throws NotFoundException See the StorageObject classes implemented.
      */
@@ -169,9 +212,9 @@ public class RequestResource
     @Path("{provider}/{container}")
     @Produces(MediaType.APPLICATION_XML)
     public InputStream
-    listBlobs(@Context                    HttpHeaders headers,
-              @PathParam("provider")      String provider,
-              @PathParam("container")     String container)
+    listBlobs(@Context                HttpHeaders headers,
+              @PathParam("provider")  String provider,
+              @PathParam("container") String container)
     throws ForbiddenException, BadRequestException, NotSupportedException, InternalServerErrorException,
            NotFoundException
     {
@@ -185,37 +228,63 @@ public class RequestResource
     }
 
     /**
-     * A {@code DELETE} HTTP request for the deletion of a blob. If the blob doesn't exist, this method returns a 404
-     * HTTP code.
+     * A {@code POST} HTTP request for the creation of a container only if it doesn't already exist.
      *
      * @param headers The HTTP headers of the client's request.
      * @param provider The CSP that's to be accessed.
-     * @param container The container that's to be altered.
-     * @param blob The blob that's to be deleted.
-     * @return A 200 HTTP code in case of success.
-     * @throws ForbiddenException See {@code getCredentialsValidateCSP} and the StorageObject classes implemented.
-     * @throws BadRequestException See {@code getCredentialsValidateCSP} and the StorageObject classes implemented.
-     * @throws NotSupportedException See {@code getCredentialsValidateCSP} and the StorageObject classes implemented.
-     * @throws NotFoundException See the StorageObject classes implemented.
+     * @param container The container that's to be listed.
+     * @return 200 HTTP code if it all went well.
+     * @throws ForbiddenException See {@link #getCredentialsValidateCSP} and the StorageObject classes implemented.
+     * @throws BadRequestException See {@link #getCredentialsValidateCSP} and the StorageObject classes implemented.
+     * @throws NotSupportedException See {@link #getCredentialsValidateCSP} and the StorageObject classes implemented.
      * @throws InternalServerErrorException See the StorageObject classes implemented.
      */
-    @DELETE
-    @Path("{provider}/{container}/{blob}")
+    @POST
+    @Path("{provider}/{container}")
     public Response
-    deleteBlob(@Context                HttpHeaders headers,
-               @PathParam("provider")  String provider,
-               @PathParam("container") String container,
-               @PathParam("blob")      String blob)
-    throws ForbiddenException, BadRequestException, NotSupportedException, NotFoundException,
-           InternalServerErrorException
+    createContainer(@Context     HttpHeaders headers,
+                    @PathParam("provider")  String provider,
+                    @PathParam("container") String container)
+    throws ForbiddenException, BadRequestException, NotSupportedException, InternalServerErrorException
     {
     // Get username and password from HTTP AUTHORIZATION header
         String[] credentials= getCredentialsValidateCSP(headers, provider);
         String username= credentials[0];
         String password= credentials[1];
 
-    // Perform deletion of blob
-        providersSet.get(provider).deleteBlob(container, blob, username, password);
+        providersSet.get(provider).createContainerIfNotExists(container, username ,password);
         return Response.ok().build();
+    }
+
+    /**
+     * A {@code HEAD} HTTP request to check if a specific container exists.
+     *
+     * @param headers The HTTP headers of the client's request.
+     * @param provider The CSP that's to be accessed.
+     * @param container The container that's to be listed.
+     * @return 200 if container exists.
+     * @throws ForbiddenException See {@link #getCredentialsValidateCSP} and the StorageObject classes implemented.
+     * @throws BadRequestException See {@link #getCredentialsValidateCSP} and the StorageObject classes implemented.
+     * @throws NotSupportedException See {@link #getCredentialsValidateCSP} and the StorageObject classes implemented.
+     * @throws InternalServerErrorException See the StorageObject classes implemented.
+     * @throws NotFoundException Thrown if container doesn't exist.
+     */
+    @HEAD
+    @Path("{provider}/{container}")
+    public Response
+    containerExists(@Context     HttpHeaders headers,
+                    @PathParam("provider")  String provider,
+                    @PathParam("container") String container)
+    throws ForbiddenException, BadRequestException, NotSupportedException, InternalServerErrorException,
+           NotFoundException
+    {
+    // Get username and password from HTTP AUTHORIZATION header
+        String[] credentials= getCredentialsValidateCSP(headers, provider);
+        String username= credentials[0];
+        String password= credentials[1];
+
+        boolean result= providersSet.get(provider).containerExists(container, username ,password);
+        if(result) {return Response.ok().build();}
+        else       {throw new NotFoundException("Container " + container + " doesn't exist.");}
     }
 }
