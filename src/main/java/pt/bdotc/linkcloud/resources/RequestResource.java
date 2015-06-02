@@ -13,18 +13,8 @@ import java.util.*;
 import java.io.InputStream;
 
 /**
- * Created by Lopson on 23/05/2015.
- *
- * JAX-RS examples:
- * https://gist.github.com/migmad/9ed2ba942a266d46914f
- * https://github.com/javaee-samples/javaee7-samples
- *
- * Return Codes HTTP:
- * http://stackoverflow.com/questions/4687271/jax-rs-how-to-return-json-and-http-status-code-together
- * http://docs.oracle.com/javaee/7/api/javax/ws/rs/package-summary.html
- *
- * Binary File Upload Multipart with Jersey 2:
- * https://github.com/aruld/jersey2-multipart-sample
+ * A JAX-RS resource that implements the interface of the RESTful service. All CSP implementations for this program
+ * should pay close attention to the exceptions that are being thrown by the methods of this class.
  */
 
 @Path("api")

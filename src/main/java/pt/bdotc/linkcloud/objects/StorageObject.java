@@ -1,6 +1,5 @@
 package pt.bdotc.linkcloud.objects;
 
-import javax.ws.rs.NotFoundException;
 import java.io.InputStream;
 
 /**
