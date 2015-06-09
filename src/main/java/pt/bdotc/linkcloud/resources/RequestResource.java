@@ -175,12 +175,12 @@ public class RequestResource
             throws ForbiddenException, BadRequestException, NotSupportedException, NotFoundException,
             InternalServerErrorException
     {
-        // Get username and password from HTTP AUTHORIZATION header
+    // Get username and password from HTTP AUTHORIZATION header
         String[] credentials= getCredentialsValidateCSP(headers, provider);
         String username= credentials[0];
         String password= credentials[1];
 
-        // Perform deletion of blob
+    // Perform deletion of blob
         providersSet.get(provider).deleteBlob(container, blob, username, password);
         return Response.ok().build();
     }
@@ -246,7 +246,7 @@ public class RequestResource
         String username= credentials[0];
         String password= credentials[1];
 
-        providersSet.get(provider).createContainerIfNotExists(container, username ,password);
+        providersSet.get(provider).createContainerIfNotExists(container, username, password);
         return Response.ok().build();
     }
 

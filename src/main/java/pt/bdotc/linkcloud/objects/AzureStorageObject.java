@@ -1,6 +1,7 @@
 package pt.bdotc.linkcloud.objects;
 
 import com.microsoft.azure.storage.CloudStorageAccount;
+import com.microsoft.azure.storage.StorageErrorCodeStrings;
 import com.microsoft.azure.storage.StorageException;
 import com.microsoft.azure.storage.blob.*;
 import org.w3c.dom.Document;
@@ -16,6 +17,7 @@ import javax.xml.transform.*;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 import java.io.*;
+import java.net.HttpURLConnection;
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
 
@@ -26,6 +28,8 @@ import java.security.InvalidKeyException;
 @Stateless
 public class AzureStorageObject implements StorageObject
 {
+    private final double CREATE_CONTAINER_TIMEOUT= 60.0;
+
     /**
      * Gives the caller a {@link com.microsoft.azure.storage.CloudStorageAccount CloudStorageAccount} object that can
      * be used to access a storage account. Also validates the username of the storage account, seeing as Azure's
@@ -363,8 +367,31 @@ public class AzureStorageObject implements StorageObject
     // Setup access to container
         CloudBlobContainer container= initBlobContainer(username, password, containerName);
 
-        try                       {container.createIfNotExists();}
-        catch(StorageException e) {throw new InternalServerErrorException("Error creating container " + containerName);}
+        long timeStart= System.currentTimeMillis();
+        boolean waitForOperation= true;
+
+        while(waitForOperation)
+        {
+            try
+            {
+                container.createIfNotExists();
+                waitForOperation= false;
+            }
+            catch(StorageException e)
+            {
+            // If a container is being deleted, we have to wait
+                /* Timeout used to avoid going into an infinite loop. */
+                long timeNow= System.currentTimeMillis();
+                double elapsedTime= (timeNow - timeStart) / 1000.0;
+
+                if(!(e.getErrorCode().equals(StorageErrorCodeStrings.CONTAINER_BEING_DELETED) &&
+                     e.getHttpStatusCode()== HttpURLConnection.HTTP_CONFLICT) &&
+                     elapsedTime<= CREATE_CONTAINER_TIMEOUT)
+                {
+                    throw new InternalServerErrorException("Error creating container " + containerName);
+                }
+            }
+        }
     }
 
     /**
