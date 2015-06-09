@@ -245,7 +245,7 @@ public class AzureStorageObject implements StorageObject
      */
     public void
     deleteBlob(String containerName, String blobName, String username, String password)
-            throws BadRequestException, InternalServerErrorException, NotFoundException
+    throws BadRequestException, InternalServerErrorException, NotFoundException
     {
     // Setup access to container
         CloudBlobContainer container= initBlobContainerIfExists(username, password, containerName);
@@ -389,6 +389,40 @@ public class AzureStorageObject implements StorageObject
         catch(NotFoundException containerMissing)
         {
             return false;
+        }
+    }
+
+    /**
+     * Deletes a container.
+     *
+     * @param containerName The name of the container to delete.
+     * @param username The username of the Azure account.
+     * @param password The password of the Azure account.
+     * @throws BadRequestException Thrown when the given blob name is invalid.
+     *         See also {@link #initBlobContainerIfExists}.
+     * @throws InternalServerErrorException Thrown when an unknown error is encountered.
+     *         See also {@link #initBlobContainerIfExists}.
+     * @throws NotFoundException Thrown when the given container doesn't exist.
+     */
+    public void
+    deleteContainer(String containerName, String username, String password)
+    throws BadRequestException, InternalServerErrorException, NotFoundException
+    {
+    // Setup access to container
+        CloudBlobContainer container= initBlobContainerIfExists(username, password, containerName);
+
+        try
+        {
+            container.delete();
+        }
+        catch(StorageException blobError)
+        {
+        // 400 for invalid name; 404 for missing; anything else is error
+            int httpStatusCode= blobError.getHttpStatusCode();
+
+            if     (httpStatusCode== 400) {throw new BadRequestException("Invalid container name " + containerName);}
+            else if(httpStatusCode== 404) {throw new NotFoundException("Container " + containerName + " not found");}
+            else                          {throw new InternalServerErrorException("Unknown error encountered");}
         }
     }
 }

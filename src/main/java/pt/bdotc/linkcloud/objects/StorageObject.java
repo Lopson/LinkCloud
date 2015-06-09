@@ -135,4 +135,14 @@ public interface StorageObject
      */
     boolean
     containerExists(String containerName, String username, String password);
+
+    /**
+     * Interface for deleting a container.
+     *
+     * @param containerName The name of the container to delete.
+     * @param username The username of the CSP account.
+     * @param password The password of the CSP account.
+     */
+    void
+    deleteContainer(String containerName, String username, String password);
 }

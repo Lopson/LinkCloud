@@ -15,6 +15,7 @@ Here's what it's be able to do for now:
 * Lists all blobs in a container (`GET` at `/api/{provider}/{container}`, returns an XML file);
 * Create a container (`POST` at `/api/{provider}/{container}`);
 * Test if a container exists (`HEAD` at `/api/{provider}/{container}`);
+* Delete a container (`DELETE` at `/api/{provider}/{container}`):
 
 All login credentials must be sent to the service through Basic Authentication HTTP headers (`accountName:accountKey`).
 The XML file returned by the listing method should have the following structure:

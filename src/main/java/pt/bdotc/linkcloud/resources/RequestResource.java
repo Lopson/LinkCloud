@@ -141,10 +141,14 @@ public class RequestResource
         String username= credentials[0];
         String password= credentials[1];
 
+    /* TODO Check if we can avoid putting the size as a query parameter by using the Content-Length header. */
+
     // Get blob size and try to upload blob
         providersSet.get(provider).uploadBlob(container, blob, username, password, content, size);
         return Response.ok().build();
     }
+
+    /* TODO A HEAD request to see if a specific blob exists or not. */
 
     /**
      * A {@code DELETE} HTTP request for the deletion of a blob. If the blob doesn't exist, this method returns a 404
@@ -276,5 +280,37 @@ public class RequestResource
         boolean result= providersSet.get(provider).containerExists(container, username ,password);
         if(result) {return Response.ok().build();}
         else       {throw new NotFoundException("Container " + container + " doesn't exist.");}
+    }
+
+    /**
+     * A {@code DELETE} HTTP request to delete a specific container if it exists.
+     *
+     * @param headers The HTTP headers of the client's request.
+     * @param provider The CSP that's to be accessed.
+     * @param container The container that's to be listed.
+     * @return A 200 HTTP code in case of success.
+     * @throws ForbiddenException See {@link #getCredentialsValidateCSP} and the StorageObject classes implemented.
+     * @throws BadRequestException See {@link #getCredentialsValidateCSP} and the StorageObject classes implemented.
+     * @throws NotSupportedException See {@link #getCredentialsValidateCSP} and the StorageObject classes implemented.
+     * @throws InternalServerErrorException See the StorageObject classes implemented.
+     * @throws NotFoundException Thrown if the given container doesn't exist.
+     */
+    @DELETE
+    @Path("{provider}/{container}")
+    public Response
+    deleteContainer(@Context                HttpHeaders headers,
+                    @PathParam("provider")  String provider,
+                    @PathParam("container") String container)
+    throws ForbiddenException, BadRequestException, NotSupportedException, NotFoundException,
+           InternalServerErrorException
+    {
+    // Get username and password from HTTP AUTHORIZATION header
+        String[] credentials= getCredentialsValidateCSP(headers, provider);
+        String username= credentials[0];
+        String password= credentials[1];
+
+    // Perform deletion of container
+        providersSet.get(provider).deleteContainer(container, username, password);
+        return Response.ok().build();
     }
 }
