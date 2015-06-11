@@ -26,9 +26,16 @@ import java.security.InvalidKeyException;
  * either downloaded or uploaded is streamed through the application server.
  */
 @Stateless
-public class AzureStorageObject implements StorageObject
+public class
+AzureStorageObject
+implements StorageObject
 {
+    /** Variable that defines the maximum waiting time for the creation of a container. */
     private final double CREATE_CONTAINER_TIMEOUT= 60.0;
+
+/*----------------------------
+* --- CSP-SPECIFIC METHODS ---
+* ----------------------------*/
 
     /**
      * Gives the caller a {@link com.microsoft.azure.storage.CloudStorageAccount CloudStorageAccount} object that can
@@ -139,6 +146,10 @@ public class AzureStorageObject implements StorageObject
         }
     }
 
+/*---------------------
+* --- BLOB REQUESTS ---
+* ---------------------*/
+
     /**
      * Downloads a blob from a specific container belonging to a specific Azure Storage account. Streams the blob's
      * content from this application into the client.
@@ -234,6 +245,52 @@ public class AzureStorageObject implements StorageObject
     }
 
     /**
+     * Checks if a given blob exists in the given container in an Azure account. If it does, this method returns the
+     * size in bytes of the blob.
+     *
+     * @param containerName The name of the container to access.
+     * @param blobName Name of the blob to check whether or not it exists.
+     * @param username Name of the CSP account to access.
+     * @param password Password of the CSP account.
+     * @return The size of the blob in bytes.
+     * @throws BadRequestException Thrown when the given blob name is invalid. See also the
+     *         {@link #initBlobContainerIfExists} method of this class.
+     * @throws InternalServerErrorException Thrown when a non 400 HTTP error is encountered. See also the
+     *         {@link #initBlobContainerIfExists} method of this class.
+     * @throws NotFoundException Thrown when the blob doesn't exist. See also the {@link #initBlobContainerIfExists}
+     *         method of this class.
+     */
+    public long
+    blobExists(String containerName, String blobName, String username, String password)
+    throws BadRequestException, InternalServerErrorException, NotFoundException
+    {
+    // Setup access to container
+        CloudBlobContainer container= initBlobContainerIfExists(username, password, containerName);
+
+        try
+        {
+            CloudBlockBlob blockBlob= container.getBlockBlobReference(blobName);
+
+        // If blob exists, return its size
+            if(blockBlob.exists()) {return blockBlob.getProperties().getLength();}
+            else                   {throw new NotFoundException("Blob " + blobName + " doesn't exist");}
+        }
+        catch(StorageException blobError)
+        {
+        // 400 for invalid name; anything else is error
+            int httpStatusCode= blobError.getHttpStatusCode();
+
+            if (httpStatusCode== 400) {throw new BadRequestException("Invalid blob name " + blobName);}
+            else                      {throw new InternalServerErrorException("Unknown error encountered");}
+        }
+        catch(URISyntaxException e)
+        {
+        // Should never happen
+            throw new InternalServerErrorException("Error encountered when parsing blob " + blobName);
+        }
+    }
+
+    /**
      * Deletes a given block from a given container with the given Azure Storage account credentials.
      *
      * @param containerName The name of the container in which the blob to be deleted exists.
@@ -256,7 +313,7 @@ public class AzureStorageObject implements StorageObject
 
         try
         {
-            CloudBlockBlob blockBlob = container.getBlockBlobReference(blobName);
+            CloudBlockBlob blockBlob= container.getBlockBlobReference(blobName);
             blockBlob.delete();
         }
         catch(StorageException blobError)
@@ -274,6 +331,10 @@ public class AzureStorageObject implements StorageObject
             throw new InternalServerErrorException("Error encountered when parsing blob " + blobName);
         }
     }
+
+/*--------------------------
+* --- CONTAINER REQUESTS ---
+* --------------------------*/
 
     /**
      * Lists the blobs that exist in a given container belonging to a given Storage account. The list is built as an
@@ -306,8 +367,8 @@ public class AzureStorageObject implements StorageObject
             long blobCounter= 0;
 
         // Create root element
-            Element rootElement= doc.createElement(XML_ROOT);
-            rootElement.setAttribute(XML_ROOT_COUNT, Long.toString(blobCounter));
+            Element rootElement= doc.createElement(XML_CONTAINER_ROOT);
+            rootElement.setAttribute(XML_CONTAINER_ROOT_COUNT, Long.toString(blobCounter));
             doc.appendChild(rootElement);
 
         // Iterate through all blobs
@@ -327,7 +388,7 @@ public class AzureStorageObject implements StorageObject
                 // Create blob entry and update blob count in root element
                     blobCounter++;
                     rootElement.appendChild(blobEntry);
-                    rootElement.setAttribute(XML_ROOT_COUNT, Long.toString(blobCounter));
+                    rootElement.setAttribute(XML_CONTAINER_ROOT_COUNT, Long.toString(blobCounter));
                 }
             }
 
@@ -377,15 +438,15 @@ public class AzureStorageObject implements StorageObject
                 container.createIfNotExists();
                 waitForOperation= false;
             }
-            catch(StorageException e)
+            catch(StorageException serviceError)
             {
             // If a container is being deleted, we have to wait
                 /* Timeout used to avoid going into an infinite loop. */
                 long timeNow= System.currentTimeMillis();
                 double elapsedTime= (timeNow - timeStart) / 1000.0;
 
-                if(!(e.getErrorCode().equals(StorageErrorCodeStrings.CONTAINER_BEING_DELETED) &&
-                     e.getHttpStatusCode()== HttpURLConnection.HTTP_CONFLICT) &&
+                if(!(serviceError.getErrorCode().equals(StorageErrorCodeStrings.CONTAINER_BEING_DELETED) &&
+                     serviceError.getHttpStatusCode()== HttpURLConnection.HTTP_CONFLICT) &&
                      elapsedTime<= CREATE_CONTAINER_TIMEOUT)
                 {
                     throw new InternalServerErrorException("Error creating container " + containerName);

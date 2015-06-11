@@ -10,7 +10,8 @@ plus it can be easily extended to use more CSPs.
 
 Here's what it's be able to do for now:
 * Download a blob (`GET` at `/api/{provider}/{container}/{blob}`);
-* Upload a blob (`POST` at  `/api/{provider}/{container}/{blob}?size={file_size_in_bytes}`);
+* Upload a blob (`POST` at  `/api/{provider}/{container}/{blob}`);
+* Checks if a blob exists and returns its size in bytes (`HEAD` at `/api/{provider}/{container}/{blob}`);
 * Delete a blob (`DELETE` at `/api/{provider}/{container}/{blob}`);
 * Lists all blobs in a container (`GET` at `/api/{provider}/{container}`, returns an XML file);
 * Create a container (`POST` at `/api/{provider}/{container}`);

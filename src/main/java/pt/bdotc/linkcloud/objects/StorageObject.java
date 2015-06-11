@@ -12,15 +12,16 @@ import java.io.InputStream;
  *    <li>Blob listing {@code (listBlobs)}.</li>
  * </ul>
  */
-public interface StorageObject
+public interface
+StorageObject
 {
     /** String with the name of the root element of the XML responses of the listBlobs. */
-    String XML_ROOT = "blobs";
-    /** String with the name of the attribute of the {@link #XML_ROOT} that's to contain a counting of blobs
+    String XML_CONTAINER_ROOT = "blobs";
+    /** String with the name of the attribute of the {@link #XML_CONTAINER_ROOT} that's to contain a counting of blobs
      *  inside a container. */
-    String XML_ROOT_COUNT= "count";
+    String XML_CONTAINER_ROOT_COUNT = "count";
     /** String with the name of the child element of the XML that describes a blob. */
-    String XML_BLOB= "blob";
+    String XML_BLOB = "blob";
     /** String with the name of the attribute of the {@link #XML_BLOB} element that's to contain a blob's name. */
     String XML_BLOB_NAME= "name";
     /** String with the name of the attribute of the {@link #XML_BLOB} element that's to contain a blob's size
@@ -62,6 +63,19 @@ public interface StorageObject
                InputStream blobContents, long size);
 
     /**
+     * Interface for testing the existence of a blob in a given container. If it does exist, this method should return
+     * the size of the blob in bytes.
+     *
+     * @param containerName The name of the container to access.
+     * @param blobName Name of the blob to check whether or not it exists.
+     * @param username Name of the CSP account to access.
+     * @param password Password of the CSP account.
+     * @return The size of the blob in bytes.
+     */
+    long
+    blobExists(String containerName, String blobName, String username, String password);
+
+    /**
      * Interface for the deletion of a given blob.
      *
      * @param containerName The name of the container to access.
@@ -83,9 +97,9 @@ public interface StorageObject
      * <pre>
      * {@code
      *
-     * <XML_ROOT XML_ROOT_COUNT="number_of_blobs">
+     * <XML_CONTAINER_ROOT XML_CONTAINER_ROOT_COUNT="number_of_blobs">
      *     <XML_BLOB XML_BLOB_NAME="name_of_a_blob" XML_BLOB_SIZE="blob_size_in_bytes" />
-     * </XML_ROOT>
+     * </XML_CONTAINER_ROOT>
      * }
      * </pre>
      *
@@ -98,7 +112,7 @@ public interface StorageObject
      *     <blob name="image1.jpg" size="10244" />
      *     <blob name="music1.flac" size="55048321" />
      *     <blob name="video1.mkv" size="348648321" />
-     * </XML_ROOT>
+     * </XML_CONTAINER_ROOT>
      * }
      * </pre>
      *

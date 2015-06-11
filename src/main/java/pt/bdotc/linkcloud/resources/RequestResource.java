@@ -4,10 +4,7 @@ import pt.bdotc.linkcloud.objects.AzureStorageObject;
 import pt.bdotc.linkcloud.objects.StorageObject;
 
 import javax.ws.rs.*;
-import javax.ws.rs.core.Context;
-import javax.ws.rs.core.HttpHeaders;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
+import javax.ws.rs.core.*;
 
 import java.util.*;
 import java.io.InputStream;
@@ -16,10 +13,15 @@ import java.io.InputStream;
  * A JAX-RS resource that implements the interface of the RESTful service. All CSP implementations for this program
  * should pay close attention to the exceptions that are being thrown by the methods of this class.
  */
-
 @Path("api")
-public class RequestResource
+public class
+RequestResource
 {
+    /* TODO Implement method to list all available CSPs. */
+
+    /** String that defines the name of the custom header field of HEAD requests for blobs. */
+    private static final String BLOB_SIZE_HEADER= "LinkCloud-Blob-Size";
+
     /** Hash Map that contains the StorageObject implementations for all supported CSPs. */
     private static final HashMap<String, StorageObject> providersSet=  new HashMap<>();
     static
@@ -104,20 +106,17 @@ public class RequestResource
     }
 
     /**
-     * A {@code POST} HTTP request for the upload of a blob. Its path is
-     * {@code "{provider}/{container}/{blob}?size=number_of_bytes"}, consuming an {@code application/octet_stream}, and
-     * it returns a 200 HTTP code if the upload was successful.
+     * A {@code POST} HTTP request for the upload of a blob. Its path is {@code "{provider}/{container}/{blob}"},
+     * consuming an {@code application/octet_stream}, and it returns a 200 HTTP code if the upload was successful.
      *
      * The reason why the program's not using a multipart form is because this program's meant exclusively for
      * programmed interaction, that is, it's not meant to be used with a web page alongside it. Changing this to a
-     * multipart form shouldn't be too hard though. In that case, I recommend putting the blob's size as a field of the
-     * form instead of a query parameter in the URL.
+     * multipart form shouldn't be too hard though. Also, this means that this isn't ideal for uploading large files.
      *
      * @param headers The HTTP headers of the client's request.
      * @param provider The CSP the user wants to use.
      * @param container The container into which the blob is to be uploaded.
      * @param blob The name of the blob.
-     * @param size The size of the blob. A parameter in the URL of the client's request.
      * @param content The contents to be uploaded.
      * @return A 200 HTTP code in case of success.
      * @throws ForbiddenException See {@link #getCredentialsValidateCSP} and the StorageObject classes implemented.
@@ -132,7 +131,6 @@ public class RequestResource
             @PathParam("provider")  String provider,
             @PathParam("container") String container,
             @PathParam("blob")      String blob,
-            @QueryParam("size")     long size,
             InputStream content)
     throws ForbiddenException, BadRequestException, NotSupportedException
     {
@@ -141,14 +139,50 @@ public class RequestResource
         String username= credentials[0];
         String password= credentials[1];
 
-    /* TODO Check if we can avoid putting the size as a query parameter by using the Content-Length header. */
+    // Get blob size from header Content-Length
+        List<String> clHeadersList= headers.getRequestHeader(HttpHeaders.CONTENT_LENGTH);
+        if(clHeadersList.isEmpty()) {throw new BadRequestException();}
+        long size= Long.parseLong(clHeadersList.get(0));
 
-    // Get blob size and try to upload blob
+    // Try to upload blob
         providersSet.get(provider).uploadBlob(container, blob, username, password, content, size);
         return Response.ok().build();
     }
 
-    /* TODO A HEAD request to see if a specific blob exists or not. */
+    /**
+     * A {@code HEAD} HTTP request to test a blob's existence. If it does exist, its size in bytes is sent as a header
+     * field of the response. The name of the header field is in the variable {@link #BLOB_SIZE_HEADER}.
+     *
+     * @param headers Headers of the client's request.
+     * @param provider The CSP the client wants to use.
+     * @param container The container to access.
+     * @param blob The blob to test.
+     * @return A 200 HTTP code in case of success.
+     * @throws ForbiddenException See {@link #getCredentialsValidateCSP} and the StorageObject classes implemented.
+     * @throws BadRequestException See {@link #getCredentialsValidateCSP} and the StorageObject classes implemented.
+     * @throws NotSupportedException See {@link #getCredentialsValidateCSP} and the StorageObject classes implemented.
+     * @throws NotFoundException See the StorageObject classes implemented.
+     * @throws InternalServerErrorException See the StorageObject classes implemented.
+     */
+    @HEAD
+    @Path("{provider}/{container}/{blob}")
+    public Response
+    blobInfo(@Context                HttpHeaders headers,
+             @PathParam("provider")  String provider,
+             @PathParam("container") String container,
+             @PathParam("blob")      String blob)
+    throws ForbiddenException, BadRequestException, NotSupportedException, NotFoundException,
+           InternalServerErrorException
+    {
+    // Get username and password from HTTP AUTHORIZATION header
+        String[] credentials= getCredentialsValidateCSP(headers, provider);
+        String username= credentials[0];
+        String password= credentials[1];
+
+    // Get blob size and return it in the response's header
+        long blobSize= providersSet.get(provider).blobExists(container, blob, username, password);
+        return Response.ok().header(BLOB_SIZE_HEADER, blobSize).build();
+    }
 
     /**
      * A {@code DELETE} HTTP request for the deletion of a blob. If the blob doesn't exist, this method returns a 404
@@ -172,8 +206,8 @@ public class RequestResource
                @PathParam("provider")  String provider,
                @PathParam("container") String container,
                @PathParam("blob")      String blob)
-            throws ForbiddenException, BadRequestException, NotSupportedException, NotFoundException,
-            InternalServerErrorException
+    throws ForbiddenException, BadRequestException, NotSupportedException, NotFoundException,
+           InternalServerErrorException
     {
     // Get username and password from HTTP AUTHORIZATION header
         String[] credentials= getCredentialsValidateCSP(headers, provider);
